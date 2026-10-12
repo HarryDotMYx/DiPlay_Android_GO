@@ -16,3 +16,7 @@ Changes through DiPlay 0.2.19 are documented in [0.2.19 release notes](RELEASE-N
 ## Diagnostics
 
 - When DiPlay crashes, the next diagnostic report shows where: a new **Last crash recorded by DiPlay** section lists the exception, its causes and the code it was thrown from, redacted like the rest of the report. Android 11+ only recorded `reason=java_crash`, so a crash when the DiYou launcher card opens DiPlay could not be traced ([#463](https://github.com/shihabal3amri/DiPlay/issues/463)). The record stays on the head unit until a report is saved and shared.
+
+## Audio, calls and Siri
+
+- **Settings → Audio → Calls on the loudspeaker** is for an Android phone or tablet used as the head unit. It plays CarPlay calls on the device's loudspeaker and uses its hands-free microphone. Android plays calls on such a device's earpiece and records them with the handset microphone, so the driver heard calls only close to the screen and had to speak into it (Xiaomi MIX 2S, Android 10, [#701](https://github.com/shihabal3amri/DiPlay/issues/701)). It is off by default and applies from the next call. The report adds `loudspeaker=true|false` to `Audio: mode entered communication`. Pending acceptance.
