@@ -6,7 +6,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        minSdk = 25
+        minSdk = 23
         consumerProguardFiles 'ambient-consumer-rules.pro'
         targetSdk = 37
 
@@ -16,7 +16,7 @@ android {
 
         externalNativeBuild {
             ndkBuild {
-                arguments 'APP_PLATFORM=android-25'
+                arguments 'APP_PLATFORM=android-23'
             }
         }
 
@@ -31,6 +31,10 @@ android {
     buildFeatures {
         // Geely/Lynk head-unit input API (com.geely.inputservice); declarations in src/main/aidl.
         aidl true
+    }
+    testOptions {
+        // The suite runs sandboxes from Android 6 to Android 14.
+        unitTests.all { it.maxHeapSize = "1g" }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
