@@ -6,6 +6,7 @@ import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.AudioEffect
 import android.media.audiofx.NoiseSuppressor
+import android.os.Build
 import android.util.Log
 import com.shilapi.xcertplay.airplay.AudioCodecKind
 import com.shilapi.xcertplay.airplay.MicrophoneConfig
@@ -504,7 +505,8 @@ internal class CaptureClock(private val sampleRate: Int) {
         samplesRead += samples
         lastReadSamples = samples
         val now = System.nanoTime()
-        val stamped = runCatching {
+        // AudioRecord.getTimestamp arrived with Android 7.0; Android 6 uses the fallback latency.
+        val stamped = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && runCatching {
             recorder.getTimestamp(timestamp, android.media.AudioTimestamp.TIMEBASE_MONOTONIC) == AudioRecord.SUCCESS
         }.getOrDefault(false)
         lastReadEndNs = if (stamped && timestamp.nanoTime > 0) {

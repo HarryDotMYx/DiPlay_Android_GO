@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay.media
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.shilapi.xcertplay.hud.BydAmbientLightClient
 import com.shilapi.xcertplay.hud.BydAmbientLightPolicy
@@ -60,12 +61,15 @@ object AmbientMusicController {
         },
     )
 
+    /** The lamp worker's futures need Android 7.0. BYD head units with these lamps run Android 7.1 or newer. */
+    val platformSupported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+
     // The 20 Hz lamp update, scheduled only while the feature is on; turning it off restores the lamps by itself.
     private var ticking: ScheduledFuture<*>? = null
 
     /** On the executor, after [settings] changed. */
     private fun updateTicking() {
-        if (!settings.enabled) {
+        if (!settings.enabled || !platformSupported) {
             ticking?.cancel(false)
             ticking = null
         } else if (ticking == null) {

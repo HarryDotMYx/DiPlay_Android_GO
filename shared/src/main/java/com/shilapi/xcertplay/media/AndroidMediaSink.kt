@@ -22,6 +22,10 @@ import com.shilapi.xcertplay.airplay.MicrophoneConfig
 import com.shilapi.xcertplay.airplay.VideoCodec
 import com.shilapi.xcertplay.airplay.toHexString
 import com.shilapi.xcertplay.compat.AudioFocusRequestCompat
+import com.shilapi.xcertplay.compat.concurrentSetCompat
+import com.shilapi.xcertplay.compat.getOrCreateCompat
+import com.shilapi.xcertplay.compat.raiseToCompat
+import com.shilapi.xcertplay.compat.underrunCountCompat
 import com.shilapi.xcertplay.hud.BydBluetoothSuspend
 import java.io.Closeable
 import java.nio.ByteBuffer
@@ -245,7 +249,7 @@ class AndroidMediaSink(
     private val videoReleasedListeners = ArrayList<() -> Unit>()
     // Closed decoders whose workers may still hold a codec on a surface until they exit; a surface
     // detach also waits for them.
-    private val closingVideoDecoders = ConcurrentHashMap.newKeySet<VideoDecoder>()
+    private val closingVideoDecoders = concurrentSetCompat<VideoDecoder>()
     // How long a surface detach waits for decoders to confirm, and then for an unconfirmed one to exit
     // after it is closed. Variables so tests can shorten them.
     internal var detachTimeoutNanos = 2_000_000_000L
@@ -315,14 +319,14 @@ class AndroidMediaSink(
         val requests = ArrayList<SurfaceDetachRequest>()
         val steps = ArrayList<() -> Boolean>()
         synchronized(videoOwnershipLock) {
-            surfaces.entries.removeIf { it.value === surface } // future workers must not start on it
+            surfaces.entries.removeAll { it.value === surface } // future workers must not start on it
             if (defaultSurface === surface) defaultSurface = null
             for ((type, decoder) in videoDecoders.entries.toList()) {
                 val request = decoder.requestDetach(surface, park = parkMain && type == MAIN_SCREEN_TYPE)
                 requests += request
                 steps += { settleDetach(type, decoder, request, deadline) }
             }
-            closingVideoDecoders.removeIf { it.exited }
+            closingVideoDecoders.removeAll { it.exited }
             closingVideoDecoders.toList().forEach { closing -> steps += { closing.awaitExitUntil(deadline + detachGraceNanos) } }
         }
         return SurfaceDetach(requests, steps)
@@ -385,7 +389,7 @@ class AndroidMediaSink(
     private fun onVideoDecoderExit(decoder: VideoDecoder) {
         val listeners = synchronized(videoOwnershipLock) {
             closingVideoDecoders -= decoder
-            videoDecoders.entries.removeIf { it.value === decoder }
+            videoDecoders.entries.removeAll { it.value === decoder }
             if (videoClosed && videoDecoders.isEmpty() && closingVideoDecoders.isEmpty()) {
                 videoReleasedListeners.toList().also { videoReleasedListeners.clear() }
             } else emptyList()
@@ -525,7 +529,7 @@ class AndroidMediaSink(
             val speakerphoneCall = config.audioType == "telephony" &&
                 appContext != null && BydBluetoothSuspend.isSuspendedByUs(appContext)
             if (config.audioType == "telephony" && !speakerphoneCall) enterCommunicationMode(id)
-            val uplink = microphoneUplinks.computeIfAbsent(id) {
+            val uplink = microphoneUplinks.getOrCreateCompat(id) {
                 MicrophoneUplink(config, onAudioDiagnostic,
                     speakerphoneCall = speakerphoneCall,
                     echoReference = if (config.audioType == TELEPHONY_AUDIO_TYPE) callEchoReferences[id] else null)
@@ -1770,7 +1774,7 @@ private class AudioRenderer(
             packetsReceived.incrementAndGet()
             val now = System.nanoTime()
             val previous = lastArrivalNs.getAndSet(now)
-            if (previous != 0L) maxArrivalGapMs.accumulateAndGet((now - previous) / 1_000_000L, ::maxOf)
+            if (previous != 0L) maxArrivalGapMs.raiseToCompat((now - previous) / 1_000_000L)
         }
         if (!started || !queue.offer(AudioPacket(rtp, sample))) {
             if (started) packetsDropped.incrementAndGet()
@@ -2326,7 +2330,7 @@ private class AudioRenderer(
 
     private fun startPlayback(track: AudioTrack) {
         diagnosticStage = "track-play"
-        underrunsAtPlaybackStart = track.underrunCount
+        underrunsAtPlaybackStart = track.underrunCountCompat()
         track.play()
         playbackStarted = true
         reportNavigationPlayback(track)
@@ -2347,7 +2351,7 @@ private class AudioRenderer(
     private fun maintainPlaybackBuffer() {
         val track = track ?: return
         if (bufferProgress.shouldRebuffer(mappedChannel == AudioChannel.MEDIA, playbackStarted,
-                track.underrunCount > underrunsAtPlaybackStart, queue.isEmpty(), track.playbackHeadPosition,
+                track.underrunCountCompat() > underrunsAtPlaybackStart, queue.isEmpty(), track.playbackHeadPosition,
                 startThresholdBytes / 2L)) {
             // The hardware buffer has starved below the recovery floor. Pause without flushing
             // or discarding PCM, then use the configured start threshold again when music resumes.
@@ -2372,7 +2376,7 @@ private class AudioRenderer(
         val now = System.nanoTime()
         if (statsWindowStartNs == 0L) statsWindowStartNs = now
         if (!force && now - statsWindowStartNs < STATS_WINDOW_NS) return
-        val underruns = track?.underrunCount ?: 0
+        val underruns = track?.underrunCountCompat() ?: 0
         val lastRx = lastArrivalNs.get()
         val currentTrack = track
         val playbackHeadFrames = currentTrack?.playbackHeadPosition

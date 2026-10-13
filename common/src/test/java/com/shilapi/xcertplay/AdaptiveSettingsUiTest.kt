@@ -665,6 +665,21 @@ class AdaptiveSettingsUiTest {
         assertTrue(texts(screen).any { it.text == screen.getString(R.string.picture_adjustments) })
     }
 
+    // Android 6.0 is the minimum. Laying out every category runs each card's controls on its framework.
+    @Test
+    @Config(sdk = [23])
+    fun everyCategoryLaysOutOnAndroid6() {
+        val screen = openSettings()
+        for (category in SettingsCategory.entries) {
+            ReflectionHelpers.callInstanceMethod<Unit>(
+                screen, "openSettingsCategory",
+                ReflectionHelpers.ClassParameter(SettingsCategory::class.java, category),
+            )
+            layoutRoot(screen)
+            assertTrue(category.name, texts(screen).any { it.isShown && it.text.isNotEmpty() })
+        }
+    }
+
     @Test fun settingsLiveWhereDriversLookForThem() {
         val screen = openSettings()
         fun visibleIn(category: Int): List<CharSequence> {

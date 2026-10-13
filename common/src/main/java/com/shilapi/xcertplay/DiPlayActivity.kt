@@ -55,6 +55,7 @@ import com.shilapi.xcertplay.backup.SettingsBackupEndpoint
 import com.shilapi.xcertplay.backup.SettingsBackupServer
 import com.shilapi.xcertplay.backup.SettingsQrCode
 import com.shilapi.xcertplay.compat.closeCompat
+import com.shilapi.xcertplay.compat.primaryLocaleCompat
 import com.shilapi.xcertplay.hud.BydAdbAccess
 import com.shilapi.xcertplay.hud.BydNavigationOutputs
 import com.shilapi.xcertplay.hud.BydFieldSource
@@ -761,7 +762,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             contentDescription = getString(R.string.carplay)
         }, LinearLayout.LayoutParams(logoSize, logoSize))
         addView(label(getString(R.string.diplay), if (compact) 20 else 26, TEXT, true,
-            centreGlyphs = resources.configuration.locales[0].language != "zh").apply {
+            centreGlyphs = resources.configuration.primaryLocaleCompat().language != "zh").apply {
             setPadding(if (compact) dp(8) else dp(12), 0, 0, 0)
         }, LinearLayout.LayoutParams(0, if (compact) dp(44) else dp(52), 1f))
         addView(appearanceButton(), LinearLayout.LayoutParams(dp(if (compact) 44 else 52), dp(if (compact) 44 else 52)).apply {
@@ -1080,7 +1081,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }, LinearLayout.LayoutParams(dp(26), dp(26)).apply { marginEnd = dp(12) })
             addView(label(title, 16, if (selected) ACCENT else TEXT, true,
-                centreGlyphs = usesChineseGlyphAlignment(resources.configuration.locales[0].language, title)),
+                centreGlyphs = usesChineseGlyphAlignment(resources.configuration.primaryLocaleCompat().language, title)),
                 LinearLayout.LayoutParams(0, -1, 1f))
             setOnClickListener {
                 openSettingsCategory(category)
@@ -1375,7 +1376,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 val titles = mutableListOf(settingsCategoryTitle(category))
                 searchIndexSink = titles
                 settingsCategoryContent(column())
-                titles.forEach { index.putIfAbsent(it, category) }
+                titles.forEach { index.getOrPut(it) { category } }
             }
         } finally {
             searchIndexSink = null
@@ -1814,7 +1815,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 scheduleControls.visibility = if (nightModes[index] == CarPlayNightMode.SCHEDULE) View.VISIBLE else View.GONE
                 handler.post(::checkForAppearanceChange)
             }
-            val sentenceSeparator = if (resources.configuration.locales[0].language == "zh") "" else " "
+            val sentenceSeparator = if (resources.configuration.primaryLocaleCompat().language == "zh") "" else " "
             card.addView(label(getString(R.string.carplay_night_hint) + sentenceSeparator +
                 getString(R.string.carplay_night_time_note), 14, MUTED).apply {
                 setPadding(0, 0, 0, dp(18))
@@ -3466,28 +3467,28 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 getString(R.string.settings_cluster_speedometer_horizontal), ClusterSpeedometerOverlay.xPercents,
                 AirPlayPersistence.loadClusterSpeedometerX(this),
             ) { value -> "$value %" }.also { row ->
-                row.getChildAt(0).layoutDirection = android.text.TextUtils.getLayoutDirectionFromLocale(resources.configuration.locales[0])
+                row.getChildAt(0).layoutDirection = android.text.TextUtils.getLayoutDirectionFromLocale(resources.configuration.primaryLocaleCompat())
                 row.onSave = { value -> AirPlayPersistence.saveClusterSpeedometerX(this, value) }
             })
             card.addView(overlaySliderRow(
                 getString(R.string.settings_cluster_speedometer_vertical), ClusterSpeedometerOverlay.yPercents,
                 AirPlayPersistence.loadClusterSpeedometerY(this),
             ) { value -> "$value %" }.also { row ->
-                row.getChildAt(0).layoutDirection = android.text.TextUtils.getLayoutDirectionFromLocale(resources.configuration.locales[0])
+                row.getChildAt(0).layoutDirection = android.text.TextUtils.getLayoutDirectionFromLocale(resources.configuration.primaryLocaleCompat())
                 row.onSave = { value -> AirPlayPersistence.saveClusterSpeedometerY(this, value) }
             })
             card.addView(overlaySliderRow(
                 getString(R.string.settings_cluster_speedometer_size), ClusterSpeedometerOverlay.sizePercents,
                 AirPlayPersistence.loadClusterSpeedometerSize(this),
             ) { value -> "$value %" }.also { row ->
-                row.getChildAt(0).layoutDirection = android.text.TextUtils.getLayoutDirectionFromLocale(resources.configuration.locales[0])
+                row.getChildAt(0).layoutDirection = android.text.TextUtils.getLayoutDirectionFromLocale(resources.configuration.primaryLocaleCompat())
                 row.onSave = { value -> AirPlayPersistence.saveClusterSpeedometerSize(this, value) }
             })
             card.addView(overlaySliderRow(
                 getString(R.string.settings_cluster_speedometer_opacity), ClusterSpeedometerOverlay.opacityPercents,
                 AirPlayPersistence.loadClusterSpeedometerOpacity(this),
             ) { value -> "$value %" }.also { row ->
-                row.getChildAt(0).layoutDirection = android.text.TextUtils.getLayoutDirectionFromLocale(resources.configuration.locales[0])
+                row.getChildAt(0).layoutDirection = android.text.TextUtils.getLayoutDirectionFromLocale(resources.configuration.primaryLocaleCompat())
                 row.onSave = { value -> AirPlayPersistence.saveClusterSpeedometerOpacity(this, value) }
             })
         }
@@ -5546,7 +5547,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(12) })
         heading.addView(label(title, 22, TEXT, true,
-            centreGlyphs = icon != null && usesChineseGlyphAlignment(resources.configuration.locales[0].language, title)),
+            centreGlyphs = icon != null && usesChineseGlyphAlignment(resources.configuration.primaryLocaleCompat().language, title)),
             LinearLayout.LayoutParams(0, -2, 1f))
         card.addView(heading)
         build(card)
@@ -5699,6 +5700,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                     render()
                 }
                 if (!selected.enabled) commit()
+                else if (!AmbientMusicController.platformSupported) toast(getString(R.string.settings_ambient_unavailable))
                 else {
                     save.isEnabled = false
                     save.text = getString(R.string.settings_ambient_checking)
@@ -5848,8 +5850,11 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         return dp(if (compact) 44 else 52) * 20f / 56
     }
 
+    private fun buttonCornerRadius(heightPx: Int) =
+        if (heightPx > 0) minOf(dp(24).toFloat(), heightPx * 20f / 56) else layoutCornerRadius()
+
     private fun buttonShape(color: Int, stroke: Int, heightPx: Int = 0) = rounded(color, stroke).apply {
-        cornerRadius = if (heightPx > 0) minOf(dp(24).toFloat(), heightPx * 20f / 56) else layoutCornerRadius()
+        cornerRadius = buttonCornerRadius(heightPx)
     }
 
     private fun buttonFocusRing() = focusRing(
@@ -5869,7 +5874,8 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         doOnLayout {
             val shape = buttonShape(if (primary) ACCENT else BUTTON, if (primary) ACCENT else BORDER, height)
             background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(RIPPLE), shape, null)
-            foreground = focusRing((shape.cornerRadius / resources.displayMetrics.density).roundToInt())
+            // GradientDrawable.getCornerRadius needs Android 7.0, so the ring works the radius out again.
+            foreground = focusRing((buttonCornerRadius(height) / resources.displayMetrics.density).roundToInt())
         }
     }
 
@@ -6131,7 +6137,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             bounds: android.graphics.Rect,
             drawingBaseline: Int = view.baseline,
         ): Float {
-            if (usesChineseGlyphAlignment(view.resources.configuration.locales[0].language, text)) {
+            if (usesChineseGlyphAlignment(view.resources.configuration.primaryLocaleCompat().language, text)) {
                 val value = text.toString()
                 view.paint.getTextBounds(value, 0, value.length, bounds)
                 return drawingBaseline + (bounds.top + bounds.bottom) / 2f
